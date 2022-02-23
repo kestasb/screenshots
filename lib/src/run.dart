@@ -17,23 +17,23 @@ import 'resources.dart' as resources;
 import 'screens.dart';
 import 'utils.dart' as utils;
 import 'validate.dart' as validate;
+import 'package:collection/collection.dart' show IterableExtension;
 
 /// Run screenshots
 Future<bool> screenshots(
-    {String configPath,
-    String configStr,
+    {String? configPath,
+    String? configStr,
     String mode = 'normal',
     String flavor = kNoFlavor,
-    bool isBuild,
+    bool? isBuild,
     bool isVerbose = false}) async {
   final screenshots = Screenshots(
-    configPath: configPath,
-    configStr: configStr,
-    mode: mode,
-    flavor: flavor,
-    isBuild: isBuild,
-    verbose: isVerbose
-  );
+      configPath: configPath!,
+      configStr: configStr,
+      mode: mode,
+      flavor: flavor,
+      isBuild: isBuild,
+      verbose: isVerbose);
   // run in context
   if (isVerbose) {
     Logger verboseLogger = VerboseLogger(
@@ -52,29 +52,29 @@ Future<bool> screenshots(
 
 class Screenshots {
   Screenshots({
-    this.configPath,
-    this.configStr,
+    required this.configPath,
+    required this.configStr,
     this.mode = 'normal',
     this.flavor = kNoFlavor,
-    this.isBuild,
+    required this.isBuild,
     this.verbose = false,
   }) {
     config = Config(configPath: configPath, configStr: configStr);
   }
 
   final String configPath;
-  final String configStr;
+  final String? configStr;
   final String mode;
-  final String flavor;
-  final bool isBuild; // defaults to null
+  final String? flavor;
+  final bool? isBuild; // defaults to null
   final bool verbose;
 
-  RunMode runMode;
-  Screens screens;
-  List<DaemonDevice> devices;
-  List<DaemonEmulator> emulators;
-  Config config;
-  Archive archive;
+  late RunMode runMode;
+  late Screens screens;
+  late List<DaemonDevice> devices;
+  late List<DaemonEmulator> emulators;
+  late Config config;
+  late Archive archive;
 
   /// Capture screenshots, process, and load into fastlane according to config file.
   ///
@@ -86,6 +86,7 @@ class Screenshots {
   /// 4. Move processed screenshots to fastlane destination for upload to stores.
   /// 5. If not a real device, stop emulator/simulator.
   Future<bool> run() async {
+    print('run');
     runMode = utils.getRunModeEnum(mode);
 
     screens = Screens();
@@ -156,7 +157,7 @@ class Screenshots {
     return true;
   }
 
-  void _printScreenshotDirs(String dirPrefix) {
+  void _printScreenshotDirs(String? dirPrefix) {
     final prefix = dirPrefix == null ? '' : '${dirPrefix}/';
     if (config.isRunTypeActive(DeviceType.ios)) {
       printStatus('  ${prefix}ios/fastlane/screenshots');
@@ -199,11 +200,12 @@ class Screenshots {
     for (final configDeviceName in config.deviceNames) {
       // look for matching device first.
       // Note: flutter daemon handles devices and running emulators/simulators as devices.
-      final device = findRunningDevice(devices, emulators, configDeviceName);
+      final DaemonDevice? device =
+          findRunningDevice(devices, emulators, configDeviceName);
 
       String deviceId;
-      DaemonEmulator emulator;
-      Map simulator;
+      DaemonEmulator? emulator;
+      Map? simulator;
       bool pendingIosLocaleChangeAtStart = false;
       if (device != null) {
         deviceId = device.id;
@@ -219,7 +221,7 @@ class Screenshots {
           // if no matching android emulator, look for matching ios simulator
           // and start it
           simulator = utils.getHighestIosSimulator(
-              utils.getIosSimulators(), configDeviceName);
+              utils.getIosSimulators(), configDeviceName)!;
           deviceId = simulator['udid'];
           // check if current simulator is pending a locale change
           if (Intl.canonicalizedLocale(config.locales[0]) ==
@@ -261,25 +263,25 @@ class Screenshots {
 
         // Function to check for a running android device or emulator.
         bool isRunningAndroidDeviceOrEmulator(
-            DaemonDevice device, DaemonEmulator emulator) {
+            DaemonDevice? device, DaemonEmulator? emulator) {
           return (device != null && device.platform != 'ios') ||
               (device == null && emulator != null);
         }
 
         // save original android locale for reverting later if necessary
-        String origAndroidLocale;
+        late String origAndroidLocale;
         if (isRunningAndroidDeviceOrEmulator(device, emulator)) {
           origAndroidLocale = utils.getAndroidDeviceLocale(deviceId);
         }
 
         // Function to check for a running ios device or simulator.
-        bool isRunningIosDeviceOrSimulator(DaemonDevice device) {
+        bool isRunningIosDeviceOrSimulator(DaemonDevice? device) {
           return (device != null && device.platform == 'ios') ||
               (device == null && simulator != null);
         }
 
         // save original ios locale for reverting later if necessary
-        String origIosLocale;
+        late String origIosLocale;
         if (isRunningIosDeviceOrSimulator(device)) {
           origIosLocale = utils.getIosSimulatorLocale(deviceId);
         }
@@ -317,7 +319,7 @@ class Screenshots {
           // Change orientation if required
           final configDevice = config.getDevice(configDeviceName);
           if (configDevice.orientations != null) {
-            for (final orientation in configDevice.orientations) {
+            for (final orientation in configDevice.orientations!) {
               final currentDevice =
                   utils.getDeviceFromId(await daemonClient.devices, deviceId);
               currentDevice == null
@@ -389,21 +391,21 @@ class Screenshots {
   Future runProcessTests(
     configDeviceName,
     String locale,
-    Orientation orientation,
+    Orientation? orientation,
     DeviceType deviceType,
     String deviceId,
   ) async {
     for (final testPath in config.tests) {
       final command = ['flutter', '-d', deviceId, 'drive'];
       bool _isBuild() => isBuild != null
-          ? isBuild
+          ? isBuild!
           : config.getDevice(configDeviceName).isBuild;
       if (!_isBuild()) {
         command.add('--no-build');
       }
       bool isFlavor() => flavor != null && flavor != kNoFlavor;
       if (isFlavor()) {
-        command.addAll(['--flavor', flavor]);
+        command.addAll(['--flavor', flavor!]);
       }
       command.addAll(testPath.split(" ")); // add test path or custom command
       printStatus(
@@ -442,16 +444,16 @@ Future<String> startEmulator(
 //    await _startAndroidEmulatorOnCI(emulatorId, stagingDir);
 //    return utils.findAndroidDeviceId(emulatorId);
 //  } else {
-    // testing locally, so start emulator in normal way
-    return await daemonClient.launchEmulator(emulatorId);
+  // testing locally, so start emulator in normal way
+  return await daemonClient.launchEmulator(emulatorId);
 //  }
 }
 
 /// Find a real device or running emulator/simulator for [deviceName].
 /// Note: flutter daemon handles devices and running emulators/simulators as devices.
-DaemonDevice findRunningDevice(List<DaemonDevice> devices,
+DaemonDevice? findRunningDevice(List<DaemonDevice> devices,
     List<DaemonEmulator> emulators, String deviceName) {
-  return devices.firstWhere((device) {
+  return devices.firstWhereOrNull((device) {
 //    // hack for CI testing. Platform is reporting as 'android-arm' instead of 'android-x86'
 //    if (device.platform == 'android-arm') {
 //      /// Find the device name of a running emulator.
@@ -472,7 +474,10 @@ DaemonDevice findRunningDevice(List<DaemonDevice> devices,
     if (device.emulator) {
       if (device.platformType == 'android') {
         // running emulator
-        return device.emulatorId.replaceAll('_', ' ').toUpperCase().contains(deviceName.toUpperCase());
+        return device.emulatorId!
+            .replaceAll('_', ' ')
+            .toUpperCase()
+            .contains(deviceName.toUpperCase());
       } else {
         // running simulator
         return device.name.contains(deviceName);
@@ -480,13 +485,13 @@ DaemonDevice findRunningDevice(List<DaemonDevice> devices,
     } else {
       if (device.platformType == 'ios') {
         // real ios device
-        return device.iosModel.contains(deviceName);
+        return device.iosModel!.contains(deviceName);
       } else {
         // real android device
         return device.name.contains(deviceName);
       }
     }
-  }, orElse: () => null);
+  });
 }
 
 /// Set the simulator locale.
@@ -600,6 +605,5 @@ Future<String> shutdownAndroidEmulator(
 
 /// Get device type from config info
 DeviceType getDeviceType(Config config, String deviceName) {
-  return config.getDevice(deviceName).deviceType;
+  return config.getDevice(deviceName).deviceType!;
 }
-

@@ -7,7 +7,7 @@ import 'package:test/test.dart' hide TypeMatcher, isInstanceOf;
 
 void main() {
   group('flavors suite', () {
-    FlutterDriver driver;
+    late FlutterDriver driver;
 
     setUpAll(() async {
       driver = await FlutterDriver.connect();
@@ -20,7 +20,7 @@ void main() {
     });
 
     tearDownAll(() async {
-      await driver?.close();
+      await driver.close();
     });
   });
 }

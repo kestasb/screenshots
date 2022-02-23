@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:meta/meta.dart';
 import 'package:screenshots/src/utils.dart';
 import 'package:tool_base/tool_base.dart';
@@ -16,15 +16,15 @@ enum EventType { deviceRemoved }
 
 /// Starts and communicates with flutter daemon.
 class DaemonClient {
-  Process _process;
+  late Process _process;
   int _messageId = 0;
   bool _connected = false;
-  Completer _waitForConnection;
-  Completer _waitForResponse;
+  late Completer _waitForConnection;
+  late Completer _waitForResponse;
   Completer _waitForEvent = Completer<String>();
-  List _iosDevices; // contains model of device, used by screenshots
-  StreamSubscription _stdOutListener;
-  StreamSubscription _stdErrListener;
+  late List _iosDevices; // contains model of device, used by screenshots
+  late StreamSubscription _stdOutListener;
+  late StreamSubscription _stdErrListener;
 
   /// Start flutter tools daemon.
   Future<void> get start async {
@@ -68,7 +68,7 @@ class DaemonClient {
         'emulatorId': emulatorId,
       },
     };
-    await _sendCommand(command);
+    _sendCommand(command);
 
     // wait for expected device-added-emulator event
     // Note: future does not complete if emulator already running
@@ -135,8 +135,8 @@ class DaemonClient {
         <String, dynamic>{'method': 'daemon.shutdown'});
     _connected = false;
     _exitCode = await _process.exitCode;
-    await _stdOutListener?.cancel();
-    await _stdErrListener?.cancel();
+    await _stdOutListener.cancel();
+    await _stdErrListener.cancel();
     return _exitCode;
   }
 
@@ -197,7 +197,7 @@ class DaemonClient {
   List _processResponse(String response, Map<String, dynamic> command) {
     if (response.contains('result')) {
       final respExp = RegExp(r'result":(.*)}\]');
-      return jsonDecode(respExp.firstMatch(response).group(1));
+      return jsonDecode(respExp.firstMatch(response)!.group(1)!);
     } else if (response.contains('error')) {
       // todo: handle errors separately
       throw 'Error: command $command failed:\n ${jsonDecode(response)[0]['error']}';
@@ -222,7 +222,7 @@ List getIosDevices() {
   return iosDeployDevices.map((line) {
     final matches = regExp.firstMatch(line);
     final device = {};
-    device['id'] = matches.group(1);
+    device['id'] = matches!.group(1);
     device['model'] = matches.group(2);
     return device;
   }).toList();
@@ -236,9 +236,8 @@ Future waitForEmulatorToStart(
     printTrace(
         'waiting for emulator/simulator with device id \'$deviceId\' to start...');
     final devices = await daemonClient.devices;
-    final device = devices.firstWhere(
-        (device) => device.id == deviceId && device.emulator,
-        orElse: () => null);
+    final device = devices
+        .firstWhereOrNull((device) => device.id == deviceId && device.emulator);
     started = device != null;
     await Future.delayed(Duration(milliseconds: 1000));
   }
@@ -282,8 +281,8 @@ class DaemonDevice extends BaseDevice {
   final String platform;
   final bool emulator;
   final bool ephemeral;
-  final String emulatorId;
-  final String iosModel; //  iOS model
+  final String? emulatorId;
+  final String? iosModel; //  iOS model
   DaemonDevice(
     String id,
     String name,

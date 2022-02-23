@@ -1,3 +1,4 @@
+// @dart=2.9
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -8,6 +9,8 @@ const usage =
 const sampleUsage = 'sample usage: screenshots';
 
 void main(List<String> arguments) async {
+  print('main, arguments: $arguments');
+
   ArgResults argResults;
 
   final configArg = 'config';
@@ -124,7 +127,9 @@ void main(List<String> arguments) async {
     mode: argResults[modeArg],
     flavor: argResults[flavorArg],
     isBuild: argResults.wasParsed(buildArg)
-        ? argResults[buildArg] == 'true' ? true : false
+        ? argResults[buildArg] == 'true'
+            ? true
+            : false
         : null,
     isVerbose: argResults.wasParsed(verboseArg) ? true : false,
   );
